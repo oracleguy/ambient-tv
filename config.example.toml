@@ -1,0 +1,34 @@
+[server]
+name = "Ambient TV"
+
+[network]
+stream_host = "ambient-tv.local"
+rtsp_port = 8554
+
+[site]
+title = "Ambient TV"
+subtitle = "Always-on ambient channels"
+base_url = "http://ambient-tv.local/ambient"
+output_directory = "./generated/site"
+publish_directory = "/var/www/html/ambient"
+theme = "dark"
+
+[media]
+directory = "./media"
+cache_directory = "./generated/cache"
+playlist_directory = "./generated/playlists"
+
+[[channels]]
+id = "ocean"
+name = "Ocean"
+file = "ocean.mp4"
+description = "Rolling waves and coastal ambience"
+poster = "posters/ocean.jpg"
+
+[[channels]]
+id = "city"
+name = "Night City"
+directory = "city"
+shuffle_rounds = 6
+description = "Rainy streets, traffic, and skyline views"
+poster = "posters/city.jpg"

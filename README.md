@@ -14,6 +14,86 @@ The project uses:
 
 The system is intentionally generator-driven rather than managed through a runtime web application. Configuration changes are made in a local config file, then applied by rerunning the generator.
 
+## Getting started
+
+Ambient TV is configured from `config.toml`, then generated into Docker Compose files, playlists, and static site assets.
+
+### 1. Install prerequisites
+
+On the server, install:
+
+- Python 3.11 or newer
+- Docker and Docker Compose
+- FFmpeg and FFprobe, for probing and normalization work as that support is added
+- Apache or another existing static web server, if you want to publish the generated site
+
+For local development and tests, create a virtual environment and install the development tools:
+
+```bash
+python3 -m venv .venv
+pip install -r requirements.txt
+```
+
+### 2. Create your configuration
+
+Copy the example config and adjust the hostnames, paths, and channels:
+
+```bash
+cp config.example.toml config.toml
+```
+
+Put source videos under the configured `[media] directory`. A single-file channel points at one video file, while a directory channel points at a folder of videos:
+
+```toml
+[[channels]]
+id = "ocean"
+name = "Ocean"
+file = "ocean.mp4"
+
+[[channels]]
+id = "city"
+name = "Night City"
+directory = "city"
+shuffle_rounds = 6
+```
+
+Supported filename extensions currently start with `.mp4`, `.mkv`, `.mov`, `.webm`, and `.m4v`.
+
+### 3. Check and generate
+
+Validate the configuration without writing generated outputs:
+
+```bash
+python3 generate.py --check --no-publish
+```
+
+Generate Compose, the static site, the M3U playlist, and directory concat playlists:
+
+```bash
+python3 generate.py --no-publish
+```
+
+Omit `--no-publish` when `site.publish_directory` is configured and ready. For safety, Ambient TV refuses broad publish paths and requires a `.ambient-tv-generated` marker before deleting files in a non-empty publish directory.
+
+### 4. Start streaming
+
+After generation, validate and start the runtime stack:
+
+```bash
+docker compose config --quiet
+docker compose up -d
+```
+
+Open the generated `channels.m3u` in VLC, or browse the generated static site and copy an RTSP URL such as:
+
+```text
+rtsp://ambient-tv.local:8554/ocean
+```
+
+### Current implementation status
+
+The initial generator supports config validation, single-file channels, directory playlist generation, Docker Compose output, M3U output, static site output, publish safety checks, and tests. Media probing and one-time remux/transcode normalization are planned next; directory playlists currently reference the original source files.
+
 ## Goals
 
 Ambient TV should:
