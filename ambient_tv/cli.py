@@ -10,6 +10,7 @@ from ambient_tv.config import channel_source_path, load_config
 from ambient_tv.errors import AmbientTvError
 from ambient_tv.media import media_mount_path, scan_video_directory
 from ambient_tv.models import AppConfig, Channel
+from ambient_tv.normalize import cache_container_path, normalize_directory_files
 from ambient_tv.playlists import build_shuffle_sequence, write_ffconcat
 from ambient_tv.publish import publish_site
 from ambient_tv.site import write_site
@@ -50,13 +51,13 @@ def run(args: argparse.Namespace) -> None:
         print("Check complete")
         return
 
-    if not args.no_normalize:
+    use_normalized_media = not args.no_normalize
+    if use_normalized_media:
         print("Probing media")
         print("Normalizing media")
-        print("Normalization execution is not implemented yet; using original files")
 
     print("Generating playlists")
-    generate_playlists(config)
+    generate_playlists(config, normalize=use_normalized_media)
 
     print("Generating Compose configuration")
     write_compose(config)
@@ -77,17 +78,32 @@ def run(args: argparse.Namespace) -> None:
     print("Complete")
 
 
-def generate_playlists(config: AppConfig) -> None:
+def generate_playlists(config: AppConfig, *, normalize: bool = True) -> None:
     for channel in config.channels:
         if channel.enabled and channel.is_directory:
-            generate_channel_playlist(config, channel)
+            generate_channel_playlist(config, channel, normalize=normalize)
 
 
-def generate_channel_playlist(config: AppConfig, channel: Channel) -> None:
+def generate_channel_playlist(
+    config: AppConfig, channel: Channel, *, normalize: bool = True
+) -> None:
     source_dir = channel_source_path(config, channel)
     files = scan_video_directory(source_dir)
-    sequence = build_shuffle_sequence(files, rounds=channel.shuffle_rounds, rng=random.Random())
-    container_paths = [Path(media_mount_path(path, config.media.directory)) for path in sequence]
+    if normalize:
+        normalized = normalize_directory_files(
+            sources=files,
+            cache_directory=config.media.cache_directory,
+            channel_id=channel.id,
+        )
+        playlist_inputs = [
+            cache_container_path(config.media.cache_directory, item.output) for item in normalized
+        ]
+    else:
+        playlist_inputs = [Path(media_mount_path(path, config.media.directory)) for path in files]
+    sequence = build_shuffle_sequence(
+        playlist_inputs, rounds=channel.shuffle_rounds, rng=random.Random()
+    )
+    container_paths = [Path(path) for path in sequence]
     write_ffconcat(config.media.playlist_directory / f"{channel.id}.ffconcat", container_paths)
 
 

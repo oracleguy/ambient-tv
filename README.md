@@ -67,7 +67,7 @@ Validate the configuration without writing generated outputs:
 python3 generate.py --check --no-publish
 ```
 
-Generate Compose, the static site, the M3U playlist, and directory concat playlists:
+Generate Compose, the static site, the M3U playlist, normalized directory media, and directory concat playlists:
 
 ```bash
 python3 generate.py --no-publish
@@ -92,7 +92,7 @@ rtsp://ambient-tv.local:8554/ocean
 
 ### Current implementation status
 
-The initial generator supports config validation, single-file channels, directory playlist generation, Docker Compose output, M3U output, static site output, publish safety checks, and tests. Media probing and one-time remux/transcode normalization are planned next; directory playlists currently reference the original source files.
+The initial generator supports config validation, single-file channels, directory playlist generation, one-time directory media normalization, Docker Compose output, M3U output, static site output, publish safety checks, and tests. Directory playlists reference the normalized cache by default. Use `--no-normalize` to generate playlists against the original source files instead.
 
 ## Goals
 
