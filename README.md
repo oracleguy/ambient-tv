@@ -258,11 +258,12 @@ ambient-tv/
 │       ├── ocean.jpg
 │       └── city.jpg
 ├── templates/
-│   ├── compose.yaml.j2
-│   ├── index.html.j2
-│   ├── styles.css.j2
-│   ├── app.js.j2
-│   └── channels.m3u.j2
+│   └── site/
+│       ├── base.html.j2
+│       ├── index.html.j2
+│       ├── _channel_card.html.j2
+│       ├── styles.css
+│       └── app.js
 └── generated/
     ├── site/
     │   ├── index.html

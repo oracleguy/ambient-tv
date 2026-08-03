@@ -5,6 +5,7 @@ from pathlib import Path
 from ambient_tv.compose import channel_command, render_compose
 from ambient_tv.config import load_config
 from ambient_tv.m3u import render_m3u
+from ambient_tv.site import write_site
 
 
 def make_config(tmp_path: Path):
@@ -80,3 +81,17 @@ def test_directory_channel_command_uses_concat_playlist(tmp_path: Path) -> None:
     assert "-f" in command
     assert "concat" in command
     assert "/playlists/city.ffconcat" in command
+
+
+def test_write_site_renders_html_and_copies_static_assets(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+
+    write_site(config)
+
+    output = config.site.output_directory
+    index_html = (output / "index.html").read_text(encoding="utf-8")
+    assert index_html.startswith("<!doctype html>")
+    assert "rtsp://ambient-tv.local:8554/ocean" in index_html
+    assert (output / "styles.css").exists()
+    assert (output / "app.js").exists()
+    assert (output / "channels.m3u").exists()

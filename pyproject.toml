@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Generator-driven ambient RTSP video streaming configuration"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "Jinja2>=3.1,<4",
+]
 
 [project.optional-dependencies]
 dev = [

@@ -1,0 +1,19 @@
+    <article class="channel-card">
+      <div class="poster">
+{% if channel.poster_path %}
+        <img src="{{ channel.poster_path }}" alt="" loading="lazy">
+{% endif %}
+      </div>
+      <div class="channel-body">
+        <h2>{{ channel.name }}</h2>
+        <p>{{ channel.description }}</p>
+        <label>
+          <span>RTSP URL</span>
+          <input readonly value="{{ channel.rtsp_url }}">
+        </label>
+        <div class="actions">
+          <button type="button" data-copy="{{ channel.rtsp_url }}">Copy URL</button>
+          <a href="{{ channel.vlc_url }}">Open in VLC</a>
+        </div>
+      </div>
+    </article>
