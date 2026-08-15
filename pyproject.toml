@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=82"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ambient-tv"
+version = "0.1.0"
+description = "Generator-driven ambient RTSP video streaming configuration"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "Jinja2>=3.1,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.1",
+]
+
+[project.scripts]
+ambient-tv = "ambient_tv.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

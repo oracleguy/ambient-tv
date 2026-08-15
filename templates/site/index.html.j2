@@ -1,0 +1,9 @@
+{% extends "base.html.j2" %}
+
+{% block content %}
+  <main class="channel-grid" aria-label="Channels">
+{% for channel in channels %}
+{% include "_channel_card.html.j2" %}
+{% endfor %}
+  </main>
+{% endblock %}

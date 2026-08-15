@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ page_title }}{% endblock %}</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <p class="kicker">{{ server.name }}</p>
+      <h1>{{ site.title }}</h1>
+      {% if site.subtitle %}
+      <p class="subtitle">{{ site.subtitle }}</p>
+      {% endif %}
+    </div>
+    <a class="playlist-link" href="channels.m3u">Download M3U</a>
+  </header>
+  {% block content %}{% endblock %}
+  <script src="app.js"></script>
+</body>
+</html>
