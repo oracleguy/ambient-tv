@@ -5,6 +5,7 @@ from pathlib import Path
 from ambient_tv.compose import channel_command, render_compose
 from ambient_tv.config import load_config
 from ambient_tv.m3u import render_m3u
+from ambient_tv.normalize import cache_container_path, manifest_output_path
 from ambient_tv.site import write_site
 
 
@@ -12,7 +13,8 @@ def make_config(tmp_path: Path):
     media = tmp_path / "media"
     city = media / "city"
     city.mkdir(parents=True)
-    (media / "ocean.mp4").write_bytes(b"fake")
+    source = media / "ocean.mp4"
+    source.write_bytes(b"fake")
     (city / "rain.mp4").write_bytes(b"fake")
     config_path = tmp_path / "config.toml"
     config_path.write_text(
@@ -48,7 +50,16 @@ shuffle_rounds = 2
 """,
         encoding="utf-8",
     )
-    return load_config(config_path)
+    config = load_config(config_path)
+    channel_cache = config.media.cache_directory / "ocean"
+    channel_cache.mkdir(parents=True, exist_ok=True)
+    output_name = "normalized-ocean.mp4"
+    (channel_cache / output_name).write_bytes(b"normalized")
+    (channel_cache / "manifest.json").write_text(
+        '{"cache_version":"1","files":[{"source":"' + str(source.resolve()) + '","output":"' + output_name + '","fingerprint":"example","action":"transcode"}]}',
+        encoding="utf-8",
+    )
+    return config
 
 
 def test_m3u_uses_channel_order_and_public_host(tmp_path: Path) -> None:
@@ -98,6 +109,19 @@ def test_single_file_channel_command_can_use_original_media(tmp_path: Path) -> N
 
     assert command[4] == "/media/ocean.mp4"
     assert command[6] == "copy"
+
+
+def test_single_file_channel_command_uses_single_file_normalization_cache(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    source = config.media.directory / "ocean.mp4"
+    expected = cache_container_path(
+        config.media.cache_directory,
+        manifest_output_path(config.media.cache_directory, "ocean", source),
+    )
+
+    command = channel_command(config, config.channels[0])
+
+    assert command[4] == expected.as_posix()
 
 
 def test_write_site_renders_html_and_copies_static_assets(tmp_path: Path) -> None:

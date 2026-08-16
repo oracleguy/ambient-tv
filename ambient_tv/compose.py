@@ -5,7 +5,7 @@ from pathlib import Path
 from ambient_tv.config import channel_source_path
 from ambient_tv.media import media_mount_path
 from ambient_tv.models import AppConfig, Channel
-from ambient_tv.normalize import cache_container_path, cached_output_path
+from ambient_tv.normalize import cache_container_path, manifest_output_path
 
 FFMPEG_IMAGE = "linuxserver/ffmpeg:latest"
 MEDIAMTX_IMAGE = "bluenviron/mediamtx:latest"
@@ -69,7 +69,15 @@ def channel_command(
     if channel.file is not None:
         host_source = channel_source_path(config, channel)
         if normalize_single_file:
-            output = cached_output_path(config.media.cache_directory, channel.id, host_source)
+            output = manifest_output_path(
+                config.media.cache_directory,
+                channel.id,
+                host_source,
+            )
+            if not output.exists():
+                raise RuntimeError(
+                    f"Expected normalized output for channel {channel.id} at {output}, but it does not exist"
+                )
             source = cache_container_path(config.media.cache_directory, output).as_posix()
         else:
             source = media_mount_path(host_source, config.media.directory)

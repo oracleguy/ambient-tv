@@ -93,6 +93,31 @@ def cached_output_path(
     return cache_directory / channel_id / f"{cache_fingerprint(source, profile)}.mp4"
 
 
+def manifest_output_path(cache_directory: Path, channel_id: str, source: Path) -> Path:
+    channel_cache = cache_directory / channel_id
+    manifest = channel_cache / MANIFEST_NAME
+    if not manifest.is_file():
+        return cached_output_path(cache_directory, channel_id, source)
+    try:
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return cached_output_path(cache_directory, channel_id, source)
+
+    target = str(source.resolve())
+    files = payload.get("files") if isinstance(payload, dict) else None
+    if not isinstance(files, list):
+        return cached_output_path(cache_directory, channel_id, source)
+
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        if item.get("source") == target:
+            output_name = item.get("output")
+            if isinstance(output_name, str):
+                return channel_cache / output_name
+    return cached_output_path(cache_directory, channel_id, source)
+
+
 def cache_container_path(cache_directory: Path, output: Path) -> Path:
     relative = output.resolve().relative_to(cache_directory.resolve())
     return Path("/cache") / relative
