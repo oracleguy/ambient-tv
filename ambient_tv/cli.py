@@ -59,10 +59,10 @@ def run(args: argparse.Namespace) -> None:
     if use_normalized_media:
         print("Probing media")
         print("Normalizing media")
-        normalize_file_channels(config)
+        normalize_file_channels(config, verbose=args.verbose)
 
     print("Generating playlists")
-    generate_playlists(config, normalize=use_normalized_media)
+    generate_playlists(config, normalize=use_normalized_media, verbose=args.verbose)
 
     print("Generating Compose configuration")
     write_compose(config, normalize_single_files=use_normalized_media)
@@ -83,14 +83,14 @@ def run(args: argparse.Namespace) -> None:
     print("Complete")
 
 
-def generate_playlists(config: AppConfig, *, normalize: bool = True) -> None:
+def generate_playlists(config: AppConfig, *, normalize: bool = True, verbose: bool = False) -> None:
     for channel in config.channels:
         if channel.enabled and channel.is_directory:
-            generate_channel_playlist(config, channel, normalize=normalize)
+            generate_channel_playlist(config, channel, normalize=normalize, verbose=verbose)
 
 
 def generate_channel_playlist(
-    config: AppConfig, channel: Channel, *, normalize: bool = True
+    config: AppConfig, channel: Channel, *, normalize: bool = True, verbose: bool = False
 ) -> None:
     source_dir = channel_source_path(config, channel)
     files = scan_video_directory(source_dir)
@@ -99,6 +99,7 @@ def generate_channel_playlist(
             sources=files,
             cache_directory=config.media.cache_directory,
             channel_id=channel.id,
+            verbose=verbose,
         )
         playlist_inputs = [
             cache_container_path(config.media.cache_directory, item.output) for item in normalized
@@ -112,13 +113,14 @@ def generate_channel_playlist(
     write_ffconcat(config.media.playlist_directory / f"{channel.id}.ffconcat", container_paths)
 
 
-def normalize_file_channels(config: AppConfig) -> None:
+def normalize_file_channels(config: AppConfig, *, verbose: bool = False) -> None:
     for channel in config.channels:
         if channel.enabled and channel.file is not None:
             normalize_channel_file(
                 source=channel_source_path(config, channel),
                 cache_directory=config.media.cache_directory,
                 channel_id=channel.id,
+                verbose=verbose,
             )
 
 

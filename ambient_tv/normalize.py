@@ -55,11 +55,16 @@ class NormalizedMedia:
 def cache_fingerprint(source: Path, profile: NormalizationProfile | None = None) -> str:
     selected_profile = profile or NormalizationProfile()
     stat = source.stat()
+    digest = hashlib.sha256()
+    with source.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
     payload = {
         "cache_version": CACHE_VERSION,
         "path": str(source.resolve()),
         "size": stat.st_size,
         "mtime_ns": stat.st_mtime_ns,
+        "content_sha256": digest.hexdigest(),
         "profile": asdict(selected_profile),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -87,20 +92,37 @@ def normalize_directory_files(
     channel_id: str,
     profile: NormalizationProfile | None = None,
     runner: CommandRunner = subprocess.run,
+    verbose: bool = False,
 ) -> list[NormalizedMedia]:
     selected_profile = profile or NormalizationProfile()
     channel_cache = cache_directory / channel_id
     channel_cache.mkdir(parents=True, exist_ok=True)
 
+    if verbose:
+        print(f"Normalizing {len(sources)} file(s) for channel '{channel_id}'")
+
     normalized: list[NormalizedMedia] = []
-    for source in sources:
+    for index, source in enumerate(sources, start=1):
+        print(f"[{channel_id}] {index}/{len(sources)}: {source}")
         probe = probe_media(source, runner=runner)
         fingerprint = cache_fingerprint(source, selected_profile)
         output = channel_cache / f"{fingerprint}.mp4"
         action = normalization_action(probe, selected_profile)
         if not cached_output_is_valid(output, source, fingerprint, selected_profile, action):
-            run_normalization(source, output, probe, selected_profile, runner=runner)
+            if verbose:
+                print(f"  Rebuilding normalized cache entry for {source.name} ({action})")
+            run_normalization(
+                source,
+                output,
+                probe,
+                selected_profile,
+                runner=runner,
+                verbose=verbose,
+            )
             write_sidecar(output, source, fingerprint, selected_profile, action)
+        else:
+            if verbose:
+                print(f"  Reusing cached output for {source.name}")
         normalized.append(
             NormalizedMedia(source=source, output=output, fingerprint=fingerprint, action=action)
         )
@@ -117,6 +139,7 @@ def normalize_channel_file(
     channel_id: str,
     profile: NormalizationProfile | None = None,
     runner: CommandRunner = subprocess.run,
+    verbose: bool = False,
 ) -> NormalizedMedia:
     normalized = normalize_directory_files(
         sources=[source],
@@ -124,6 +147,7 @@ def normalize_channel_file(
         channel_id=channel_id,
         profile=profile,
         runner=runner,
+        verbose=verbose,
     )
     return normalized[0]
 
@@ -247,14 +271,27 @@ def run_normalization(
     profile: NormalizationProfile,
     *,
     runner: CommandRunner = subprocess.run,
+    verbose: bool = False,
 ) -> None:
     from ambient_tv.errors import MediaError
 
     output.parent.mkdir(parents=True, exist_ok=True)
     command = normalization_command(source, output, probe, profile)
-    result = runner(command, timeout=FFMPEG_TIMEOUT_SECONDS, capture_output=True, text=True)
+    if verbose:
+        print(f"  ffmpeg: {source} -> {output.name}")
+    result = runner(
+        command,
+        timeout=FFMPEG_TIMEOUT_SECONDS,
+        capture_output=not verbose,
+        text=True,
+    )
+    if verbose and result.stdout:
+        print(result.stdout, end="")
+    if verbose and result.stderr:
+        print(result.stderr, end="")
     if result.returncode != 0:
-        raise MediaError(f"ffmpeg failed for {source}: {result.stderr.strip()}")
+        stderr = (result.stderr or "").strip() or "ffmpeg exited with a non-zero status"
+        raise MediaError(f"ffmpeg failed for {source}: {stderr}")
 
 
 def normalization_command(
