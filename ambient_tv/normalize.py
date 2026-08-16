@@ -31,6 +31,19 @@ class NormalizationProfile:
     audio_channels: int = 2
 
 
+# Profile for single-file channels: only enforce codec compatibility, preserve resolution/fps
+SINGLE_FILE_PROFILE = NormalizationProfile(
+    video_codec="h264",
+    audio_codec="aac",
+    pixel_format="yuv420p",
+    max_width=7680,  # very permissive, accept any width
+    max_height=4320,  # very permissive, accept any height
+    fps=60,  # permissive, accept up to 60fps
+    audio_sample_rate=48000,
+    audio_channels=2,
+)
+
+
 @dataclass(frozen=True)
 class MediaProbe:
     container: str
@@ -141,11 +154,13 @@ def normalize_channel_file(
     runner: CommandRunner = subprocess.run,
     verbose: bool = False,
 ) -> NormalizedMedia:
+    # Use single-file profile if none provided (only cares about codec compatibility)
+    selected_profile = profile or SINGLE_FILE_PROFILE
     normalized = normalize_directory_files(
         sources=[source],
         cache_directory=cache_directory,
         channel_id=channel_id,
-        profile=profile,
+        profile=selected_profile,
         runner=runner,
         verbose=verbose,
     )
@@ -226,6 +241,43 @@ def parse_int(value: object) -> int | None:
         return int(str(value))
     except (TypeError, ValueError):
         return None
+
+
+def codecs_match_profile(probe: MediaProbe, profile: NormalizationProfile) -> bool:
+    """Check if video and audio codecs match the target profile (for remux eligibility)."""
+    return (
+        probe.video_codec == profile.video_codec
+        and probe.audio_codec == profile.audio_codec
+    )
+
+
+def codec_conversion_only(probe: MediaProbe, profile: NormalizationProfile) -> bool:
+    """
+    Check if only codecs differ, not stream properties.
+    If true, we can use a faster preset since no rescaling/fps/format conversion is needed.
+    """
+    return (
+        probe.video_codec != profile.video_codec
+        and probe.width == profile.max_width
+        and probe.height == profile.max_height
+        and probe.fps == float(profile.fps)
+        and probe.pixel_format == profile.pixel_format
+        and probe.audio_codec != profile.audio_codec
+        and probe.audio_sample_rate == profile.audio_sample_rate
+        and probe.audio_channels == profile.audio_channels
+    )
+
+
+def should_skip_video_filters(probe: MediaProbe, profile: NormalizationProfile) -> bool:
+    """
+    Check if we should skip scaling/fps/format filters and only do codec conversion.
+    Used for single-file channels where resolution/fps preservation is preferred.
+    """
+    # Skip filters if profile is very permissive (single-file mode)
+    if profile.max_width >= 7680 and profile.max_height >= 4320:
+        # Only convert codecs, preserve everything else
+        return True
+    return False
 
 
 def normalization_action(probe: MediaProbe, profile: NormalizationProfile) -> str:
@@ -316,12 +368,11 @@ def normalization_command(
             output.as_posix(),
         ]
 
-    video_filter = (
-        f"scale={selected_profile.max_width}:{selected_profile.max_height}:"
-        "force_original_aspect_ratio=decrease,"
-        f"pad={selected_profile.max_width}:{selected_profile.max_height}:(ow-iw)/2:(oh-ih)/2,"
-        f"fps={selected_profile.fps},setsar=1,format={selected_profile.pixel_format}"
-    )
+    # Determine if we should skip video filters (single-file mode with permissive profile)
+    skip_video_filters = should_skip_video_filters(probe, selected_profile)
+    fast_mode = codec_conversion_only(probe, selected_profile)
+    preset = "superfast" if (fast_mode or skip_video_filters) else "veryfast"
+
     command = [*base]
     if probe.audio_codec is None:
         command.extend(
@@ -332,34 +383,98 @@ def normalization_command(
                 f"anullsrc=channel_layout=stereo:sample_rate={selected_profile.audio_sample_rate}",
             ]
         )
-    command.extend(
-        [
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0" if probe.audio_codec is None else "0:a:0",
-            "-vf",
-            video_filter,
-            "-c:v",
-            "libx264",
-            "-preset",
-            "veryfast",
-            "-crf",
-            "20",
-            "-c:a",
-            selected_profile.audio_codec,
-            "-ar",
-            str(selected_profile.audio_sample_rate),
-            "-ac",
-            str(selected_profile.audio_channels),
-            "-b:a",
-            "160k",
-            "-shortest",
-            "-movflags",
-            "+faststart",
-            output.as_posix(),
-        ]
-    )
+    
+    # For single-file mode with skip_video_filters: codec conversion only, no rescaling
+    if skip_video_filters:
+        command.extend(
+            [
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0" if probe.audio_codec is None else "0:a:0",
+                "-c:v",
+                "libx264",
+                "-preset",
+                preset,
+                "-crf",
+                "20",
+                "-c:a",
+                "aac" if probe.audio_codec != "aac" else "copy",
+                "-ar",
+                str(selected_profile.audio_sample_rate),
+                "-ac",
+                str(selected_profile.audio_channels),
+                "-b:a",
+                "160k",
+                "-movflags",
+                "+faststart",
+                output.as_posix(),
+            ]
+        )
+    elif fast_mode and probe.video_codec != selected_profile.video_codec:
+        # Can't use copy for codec conversion, but use fast preset
+        command.extend(
+            [
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0" if probe.audio_codec is None else "0:a:0",
+                "-c:v",
+                "libx264",
+                "-preset",
+                preset,
+                "-crf",
+                "20",
+                "-c:a",
+                "aac" if probe.audio_codec != "aac" else "copy",
+                "-ar",
+                str(selected_profile.audio_sample_rate),
+                "-ac",
+                str(selected_profile.audio_channels),
+                "-b:a",
+                "160k",
+                "-movflags",
+                "+faststart",
+                output.as_posix(),
+            ]
+        )
+    else:
+        # Full re-encoding with filtering
+        video_filter = (
+            f"scale={selected_profile.max_width}:{selected_profile.max_height}:"
+            "force_original_aspect_ratio=decrease,"
+            f"pad={selected_profile.max_width}:{selected_profile.max_height}:(ow-iw)/2:(oh-ih)/2,"
+            f"fps={selected_profile.fps},setsar=1,format={selected_profile.pixel_format}"
+        )
+        command.extend(
+            [
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0" if probe.audio_codec is None else "0:a:0",
+                "-vf",
+                video_filter,
+                "-c:v",
+                "libx264",
+                "-preset",
+                preset,
+                "-crf",
+                "20",
+                "-c:a",
+                selected_profile.audio_codec,
+                "-ar",
+                str(selected_profile.audio_sample_rate),
+                "-ac",
+                str(selected_profile.audio_channels),
+                "-b:a",
+                "160k",
+                "-shortest",
+                "-movflags",
+                "+faststart",
+                output.as_posix(),
+            ]
+        )
+    
     return command
 
 
