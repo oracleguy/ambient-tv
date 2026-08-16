@@ -11,7 +11,7 @@ from ambient_tv.models import AppConfig, Channel
 from ambient_tv.urls import rtsp_url
 
 SITE_TEMPLATE_DIR = "templates/site"
-STATIC_SITE_FILES = ("styles.css", "app.js")
+STATIC_SITE_FILES = ("styles.css", "app.js", ".htaccess")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
