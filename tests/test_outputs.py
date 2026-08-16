@@ -72,6 +72,7 @@ def test_compose_contains_mediamtx_and_channel_services(tmp_path: Path) -> None:
     assert "  channel-city:" in rendered
     assert '"8554:8554"' in rendered
     assert "rtsp://mediamtx:8554/ocean" in rendered
+    assert "/cache/ocean/" in rendered
 
 
 def test_directory_channel_command_uses_concat_playlist(tmp_path: Path) -> None:
@@ -81,6 +82,22 @@ def test_directory_channel_command_uses_concat_playlist(tmp_path: Path) -> None:
     assert "-f" in command
     assert "concat" in command
     assert "/playlists/city.ffconcat" in command
+
+
+def test_single_file_channel_command_uses_normalized_cache_by_default(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    command = channel_command(config, config.channels[0])
+
+    assert command[4].startswith("/cache/ocean/")
+    assert command[6] == "copy"
+
+
+def test_single_file_channel_command_can_use_original_media(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    command = channel_command(config, config.channels[0], normalize_single_file=False)
+
+    assert command[4] == "/media/ocean.mp4"
+    assert command[6] == "copy"
 
 
 def test_write_site_renders_html_and_copies_static_assets(tmp_path: Path) -> None:

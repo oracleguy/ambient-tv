@@ -110,6 +110,24 @@ def normalize_directory_files(
     return normalized
 
 
+def normalize_channel_file(
+    *,
+    source: Path,
+    cache_directory: Path,
+    channel_id: str,
+    profile: NormalizationProfile | None = None,
+    runner: CommandRunner = subprocess.run,
+) -> NormalizedMedia:
+    normalized = normalize_directory_files(
+        sources=[source],
+        cache_directory=cache_directory,
+        channel_id=channel_id,
+        profile=profile,
+        runner=runner,
+    )
+    return normalized[0]
+
+
 def probe_media(source: Path, *, runner: CommandRunner = subprocess.run) -> MediaProbe:
     command = [
         "ffprobe",
