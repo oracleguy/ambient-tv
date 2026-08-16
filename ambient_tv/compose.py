@@ -14,7 +14,7 @@ def render_compose(config: AppConfig) -> str:
     lines: list[str] = [
         "services:",
         "  mediamtx:",
-        "    container_name: Ambient-tv-mediamtx",
+        "    container_name: ambient-tv-mediamtx",
         f"    image: {MEDIAMTX_IMAGE}",
         "    restart: unless-stopped",
         "    ports:",
