@@ -144,3 +144,51 @@ def test_normalization_reuses_current_cache_and_removes_stale_files(tmp_path: Pa
     cache_names = {path.name for path in (cache / "city").iterdir()}
     assert len([args for args in calls if args[0] == "ffmpeg"]) == 1
     assert cache_names == active_names | {f"{next(iter(active_names))}.json", "manifest.json"}
+
+
+def test_normalization_logs_progress_for_each_file_in_verbose_mode(
+    tmp_path: Path, capsys
+) -> None:
+    source = tmp_path / "video.mkv"
+    source.write_bytes(b"video")
+    cache = tmp_path / "cache"
+    calls: list[tuple[list[str], bool]] = []
+
+    def runner(
+        args: list[str], *, timeout: int, capture_output: bool, text: bool
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append((args, capture_output))
+        if args[0] == "ffprobe":
+            stdout = json.dumps(
+                {
+                    "format": {"format_name": "matroska,webm"},
+                    "streams": [
+                        {
+                            "codec_type": "video",
+                            "codec_name": "hevc",
+                            "pix_fmt": "yuv420p10le",
+                            "width": 3840,
+                            "height": 2160,
+                            "avg_frame_rate": "60/1",
+                        }
+                    ],
+                }
+            )
+            return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
+        Path(args[-1]).write_bytes(b"normalized")
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    normalize_directory_files(
+        sources=[source],
+        cache_directory=cache,
+        channel_id="night",
+        runner=runner,
+        verbose=True,
+    )
+
+    assert calls[1][0][0] == "ffmpeg"
+    assert calls[1][1] is False
+    output = capsys.readouterr().out
+    assert "Normalizing" in output
+    assert "night" in output
+    assert "video.mkv" in output

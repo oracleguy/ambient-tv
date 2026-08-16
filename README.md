@@ -67,7 +67,7 @@ Validate the configuration without writing generated outputs:
 python3 generate.py --check --no-publish
 ```
 
-Generate Compose, the static site, the M3U playlist, normalized directory media, and directory concat playlists:
+Generate Compose, the static site, the M3U playlist, normalized media, and directory concat playlists:
 
 ```bash
 python3 generate.py --no-publish
@@ -92,7 +92,7 @@ rtsp://ambient-tv.local:8554/ocean
 
 ### Current implementation status
 
-The initial generator supports config validation, single-file channels, directory playlist generation, one-time directory media normalization, Docker Compose output, M3U output, static site output, publish safety checks, and tests. Directory playlists reference the normalized cache by default. Use `--no-normalize` to generate playlists against the original source files instead.
+The initial generator supports config validation, single-file channels, directory playlist generation, one-time media normalization, Docker Compose output, M3U output, static site output, publish safety checks, and tests. Single-file channels and directory playlists reference the normalized cache by default. Use `--no-normalize` to stream or playlist against the original source files instead.
 
 ## Goals
 
@@ -168,13 +168,13 @@ description = "Rolling waves and coastal ambience"
 poster = "posters/ocean.jpg"
 ```
 
-The generated FFmpeg command should resemble:
+By default, generation probes and normalizes the source once, then the runtime container loops the cached output with stream copy:
 
 ```bash
 ffmpeg \
   -re \
   -stream_loop -1 \
-  -i /media/ocean.mp4 \
+  -i /cache/ocean/<fingerprint>.mp4 \
   -c copy \
   -f rtsp \
   rtsp://mediamtx:8554/ocean
@@ -210,7 +210,7 @@ With 10 to 15 hours of source material and six shuffled rounds, the full generat
 
 ## Media normalization
 
-Directory-based channels may contain files with different codecs, resolutions, frame rates, audio formats, or timestamp behavior.
+Source media may contain files with different codecs, resolutions, frame rates, audio formats, or timestamp behavior. For example, AV1 source files are normalized to the default H.264/AAC profile before runtime publishing.
 
 To keep runtime CPU and energy use low, media should be normalized once and cached rather than transcoded continuously.
 
@@ -233,7 +233,7 @@ A reasonable default target profile is:
 - 48 kHz stereo audio
 - `yuv420p` pixel format
 
-Exact defaults may evolve during implementation, but all normalized files used in a concat playlist must have compatible stream layouts.
+Exact defaults may evolve during implementation, but normalized files used for RTSP publishing should have compatible stream layouts.
 
 ## Suggested repository layout
 
