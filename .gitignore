@@ -8,3 +8,4 @@ generated/site/
 compose.yaml
 config.toml
 media/
+ambient-tv.service
