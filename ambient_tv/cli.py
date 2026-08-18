@@ -8,6 +8,7 @@ from pathlib import Path
 from ambient_tv.compose import render_compose
 from ambient_tv.config import channel_source_path, load_config
 from ambient_tv.errors import AmbientTvError
+from ambient_tv.mdns import write_mdns_file
 from ambient_tv.media import media_mount_path, scan_video_directory
 from ambient_tv.models import AppConfig, Channel
 from ambient_tv.normalize import (
@@ -69,6 +70,9 @@ def run(args: argparse.Namespace) -> None:
 
     print("Generating static site")
     write_site(config)
+
+    print("Generating mDNS service file")
+    write_mdns_file(config, config.root / "ambient-tv.service")
 
     if args.no_publish or config.site.publish_directory is None:
         print("Publishing static site skipped")

@@ -36,6 +36,10 @@ button {
   cursor: pointer;
 }
 
+a {
+  text-decoration: underline;
+}
+
 a:focus-visible,
 button:focus-visible,
 input:focus-visible {
@@ -124,6 +128,10 @@ h1 {
   padding: 1rem;
 }
 
+.url {
+  font-size: 1.3rem;
+}
+
 h2 {
   font-size: 1.3rem;
   font-weight: 800;
@@ -167,6 +175,14 @@ input {
   background: transparent;
   color: var(--text);
   border: 1px solid var(--line);
+}
+
+footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: clamp(1rem, 3vw, 2rem);
+  color: var(--muted);
 }
 
 @media (max-width: 1024px) {
